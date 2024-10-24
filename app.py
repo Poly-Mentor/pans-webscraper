@@ -55,7 +55,7 @@ def extract_new_value(response):
         new_value = None
     return new_value
 
-def notify_gmail(message, recipents_email_addressed, sender_email_address, password):
+def notify_gmail(message, recipents_email_addresses, sender_email_address, password):
     pass
 
 def notify_discord(message, token):
@@ -81,9 +81,9 @@ if __name__ == "__main__":
         # try to reach site
         response = get_site_content(settings['url'])
         while response is None:
-            access_retry_period = settings["access_retry_period"]
-            logging.info("waiting %s seconds before retrying to reach the site", access_retry_period)
-            sleep(access_retry_period)
+            access_retry_period = settings["access retry period"]
+            logging.info("waiting %s minutes before retrying to reach the site", access_retry_period)
+            sleep(60 * access_retry_period)
             response = get_site_content(settings['url'])
         
         # parse new value
@@ -96,24 +96,24 @@ if __name__ == "__main__":
                     settings["message"],\
                     settings["email recipents"],\
                     settings["sender email"],\
-                    settings["sender_password"])
+                    settings["sender password"])
             # keep retrying if not successful
             while not notification_successful:
                 notification_retry_period = settings["notification retry period"]
-                logging.info("waiting %s seconds before retrying to notify", notification_retry_period)
-                sleep(notification_retry_period)
+                logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
+                sleep(60 * notification_retry_period)
                 notification_successful = notify_gmail( \
                     settings["message"],\
                     settings["email recipents"],\
                     settings["sender email"],\
-                    settings["sender_password"])
+                    settings["sender password"])
             # after succesfull notification update last value and save it to a file
             last_value = new_value
             save_last_value('last_value.txt', last_value)
 
         # wait for the next check
         check_period = settings["check period"]
-        logging.info("waiting %s seconds before next check", check_period)
-        sleep(check_period)
+        logging.info("waiting %s minutes before next check", check_period)
+        sleep(60 * check_period)
         
     # end of main loop
