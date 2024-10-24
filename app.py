@@ -55,7 +55,7 @@ def extract_new_value(response):
         new_value = None
     return new_value
 
-def notify_gmail(message, recipents_email_addresses, sender_email_address, password):
+def notify_gmail(subject,message, recipents_email_addresses, sender_email_address, password):
     pass
 
 def notify_discord(message, token):
@@ -93,6 +93,7 @@ if __name__ == "__main__":
         if new_value != last_value:
             # try to notify about a change
             notification_successful = notify_gmail( \
+                    settings["email subject"],\
                     settings["message"],\
                     settings["email recipents"],\
                     settings["sender email"],\
