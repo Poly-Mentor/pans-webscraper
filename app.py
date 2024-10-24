@@ -8,7 +8,7 @@ import yagmail
 
 def load_settings(path):
     with open(path, 'r') as file:
-        settings = yaml.load(file)
+        settings = yaml.safe_load(file)
     logging.info("Settings file loaded")
     return settings
 
@@ -41,7 +41,7 @@ def get_site_content(url):
         logging.warning(e)
         response = None
     else:
-        logging.info('site "%s" reached with status %s, response downloaded', response.status)
+        logging.info('site "%s" reached with status %s, response downloaded', url, response.status)
     return response
 
 def extract_new_value(response):
@@ -49,12 +49,14 @@ def extract_new_value(response):
         soup = BeautifulSoup(response.read(), "html.parser")
         # ---CUSTOM CODE---
         search_result = soup.find_all(string="Informatyka I rok")
-        new_value = search_result[0].parent.parent.next_sibling.next_sibling.string
+        extracted_value = search_result[0].parent.parent.next_sibling.next_sibling.string
     except Exception as e:
         logging.error("Error occured when parsing response")
         logging.error(e)
-        new_value = None
-    return new_value
+        extracted_value = None
+    else:
+        logging.info("Extracted value: %s", extracted_value)
+    return extracted_value
 
 def notify_gmail(subject, message, recipents_email_addresses, sender_email_address, password):
     try:
@@ -80,7 +82,7 @@ if __name__ == "__main__":
     if settings["debugging logs"]:
         logging.basicConfig(level=logging.DEBUG)
         logging.debug("--- Settings ---")
-        for setting_name, setting_value in settings:
+        for setting_name, setting_value in settings.items():
             logging.debug("%s = %s", setting_name, setting_value)
         logging.debug("--- /SETTINGS ---")
     last_value = load_last_value('last_value.txt')
@@ -104,7 +106,7 @@ if __name__ == "__main__":
             # try to notify about a change
             notification_successful = notify_gmail( \
                     settings["email subject"],\
-                    settings["message"],\
+                    settings["email message"],\
                     settings["email recipents"],\
                     settings["sender email"],\
                     settings["sender password"])
