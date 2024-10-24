@@ -3,6 +3,7 @@ from time import sleep
 from bs4 import BeautifulSoup
 import logging
 import yaml
+import yagmail
 
 
 def load_settings(path):
@@ -55,11 +56,20 @@ def extract_new_value(response):
         new_value = None
     return new_value
 
-def notify_gmail(subject,message, recipents_email_addresses, sender_email_address, password):
-    pass
+def notify_gmail(subject, message, recipents_email_addresses, sender_email_address, password):
+    try:
+        yag = yagmail.SMTP(sender_email_address, password)
+        yag.send(recipents_email_addresses, subject, message)
+    except Exception as e:
+        logging.error("Error occured when sending email")
+        logging.error(e)
+        return False
+    else:
+        logging.info("Email notification sent")
+        return True
 
 def notify_discord(message, token):
-    pass
+    raise NotImplementedError
 
 
 if __name__ == "__main__":
@@ -99,7 +109,8 @@ if __name__ == "__main__":
                     settings["sender email"],\
                     settings["sender password"])
             # keep retrying if not successful
-            while not notification_successful:
+            retries = 0
+            while not notification_successful and retries < settings["notification max retries"]:
                 notification_retry_period = settings["notification retry period"]
                 logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
                 sleep(60 * notification_retry_period)
@@ -108,7 +119,8 @@ if __name__ == "__main__":
                     settings["email recipents"],\
                     settings["sender email"],\
                     settings["sender password"])
-            # after succesfull notification update last value and save it to a file
+                retries += 1
+            # after succesfull notification or max retries reached, update last value and save it to a file
             last_value = new_value
             save_last_value('last_value.txt', last_value)
 

@@ -1,7 +1,8 @@
-url: "https://www.example.com" # site to be monitored
+url: "https://www.example.com" # site to be monitored, modify custom scraping code in app.py!
 check period: 15 # minutes; wait this long between looking for changes
 access retry period: 5 # minutes; if site can't be reached, wait this long before trying again
 notification retry period: 5 # minutes; if notification can't be sent, wait this long before trying again
+notification max retries: 1 # number of times to try sending notification
 
 # email notification settings
 email subject: "Change detected" 
@@ -10,7 +11,7 @@ email recipents:
   - "abc@def.ghi"
 
 sender email: "example@gmail.com" # currently gmail only
-sender password: 
+sender password: # application password, not user password used to login to account!
 
 # setting to true will enable verbose logging messages
 debugging logs: true 
