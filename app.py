@@ -20,6 +20,8 @@ def load_last_value(path):
         logging.warning("Loading last value from file failed")
         logging.warning(e)
         last_value = None
+    else:
+        logging.info('Last value: "%s" loaded from file', last_value)
     return last_value
 
 def save_last_value(path, last_value):
@@ -103,25 +105,27 @@ if __name__ == "__main__":
 
         # check if it changed
         if new_value != last_value:
-            # try to notify about a change
-            notification_successful = notify_gmail( \
-                    settings["email subject"],\
-                    settings["email message"],\
-                    settings["email recipents"],\
-                    settings["sender email"],\
-                    settings["sender password"])
-            # keep retrying if not successful
-            retries = 0
-            while not notification_successful and retries < settings["notification max retries"]:
-                notification_retry_period = settings["notification retry period"]
-                logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
-                sleep(60 * notification_retry_period)
+            # don't notify if previous value is unknown
+            if last_value is not None:
+                # try to notify about a change
                 notification_successful = notify_gmail( \
-                    settings["message"],\
-                    settings["email recipents"],\
-                    settings["sender email"],\
-                    settings["sender password"])
-                retries += 1
+                        settings["email subject"],\
+                        settings["email message"],\
+                        settings["email recipents"],\
+                        settings["sender email"],\
+                        settings["sender password"])
+                # keep retrying if not successful
+                retries = 0
+                while not notification_successful and retries < settings["notification max retries"]:
+                    notification_retry_period = settings["notification retry period"]
+                    logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
+                    sleep(60 * notification_retry_period)
+                    notification_successful = notify_gmail( \
+                        settings["message"],\
+                        settings["email recipents"],\
+                        settings["sender email"],\
+                        settings["sender password"])
+                    retries += 1
             # after succesfull notification or max retries reached, update last value and save it to a file
             last_value = new_value
             save_last_value('last_value.txt', last_value)
