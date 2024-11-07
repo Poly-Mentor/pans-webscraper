@@ -78,7 +78,7 @@ def notify_discord(message, token):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    settings = load_settings('settings.yaml')
+    settings = load_settings('data/settings.yaml')
 
     # show loaded settings when "debugging logs" value was set to true in settings.yaml
     if settings["debugging logs"]:
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         for setting_name, setting_value in settings.items():
             logging.debug("%s = %s", setting_name, setting_value)
         logging.debug("--- /SETTINGS ---")
-    last_value = load_last_value('last_value.txt')
+    last_value = load_last_value('data/last_value.txt')
     
     # synchronous approach
     # main loop
@@ -128,7 +128,7 @@ if __name__ == "__main__":
                     retries += 1
             # after succesfull notification or max retries reached, update last value and save it to a file
             last_value = new_value
-            save_last_value('last_value.txt', last_value)
+            save_last_value('data/last_value.txt', last_value)
 
         # wait for the next check
         check_period = settings["check period"]

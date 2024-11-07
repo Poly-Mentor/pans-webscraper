@@ -1,0 +1,6 @@
+services:
+  pans-scraper:
+    build: .
+    volumes:
+      - ./data:/app/data
+    restart: on-failure:3
