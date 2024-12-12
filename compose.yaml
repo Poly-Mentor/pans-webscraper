@@ -1,6 +1,6 @@
 services:
-  pans-scraper:
-    build: .
+  async-pans-scraper:
+    image: filips95/private-repo:async-pans-webscraper
     volumes:
       - ./data:/app/data
     restart: on-failure:3
