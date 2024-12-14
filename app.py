@@ -3,7 +3,7 @@ from time import sleep
 from bs4 import BeautifulSoup
 import logging
 import yaml
-import yagmail
+import aioyagmail
 
 
 def load_settings(path):
@@ -60,17 +60,13 @@ def extract_new_value(response):
         logging.info("Extracted value: %s", extracted_value)
     return extracted_value
 
-def notify_gmail(subject, message, recipents_email_addresses, sender_email_address, password):
+async def notify_gmail(subject, message, recipients_email_addresses, sender_email_address, password):
     try:
-        yag = yagmail.SMTP(sender_email_address, password)
-        yag.send(recipents_email_addresses, subject, message)
-    except Exception as e:
-        logging.error("Error occured when sending email")
-        logging.error(e)
-        return False
-    else:
+        async with aioyagmail.SMTP(sender_email_address, password) as yag:
+            await yag.send(to=recipients_email_addresses, subject=subject, contents=message)
         logging.info("Email notification sent")
-        return True
+    except Exception as e:
+        logging.error("Error occurred when sending email: %s", e)
 
 def notify_discord(message, token):
     raise NotImplementedError
@@ -108,23 +104,24 @@ if __name__ == "__main__":
             # don't notify if previous value is unknown
             if last_value is not None:
                 # try to notify about a change
-                notification_successful = notify_gmail( \
+                import asyncio
+                notification_successful = asyncio.run(notify_gmail( \
                         settings["email subject"],\
                         settings["email message"],\
                         settings["email recipents"],\
                         settings["sender email"],\
-                        settings["sender password"])
+                        settings["sender password"]))
                 # keep retrying if not successful
                 retries = 0
                 while not notification_successful and retries < settings["notification max retries"]:
                     notification_retry_period = settings["notification retry period"]
                     logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
                     sleep(60 * notification_retry_period)
-                    notification_successful = notify_gmail( \
+                    notification_successful = asyncio.run(notify_gmail( \
                         settings["message"],\
                         settings["email recipents"],\
                         settings["sender email"],\
-                        settings["sender password"])
+                        settings["sender password"]))
                     retries += 1
             # after succesfull notification or max retries reached, update last value and save it to a file
             last_value = new_value
