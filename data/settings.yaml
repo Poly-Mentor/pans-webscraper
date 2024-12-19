@@ -7,11 +7,11 @@ notification max retries: 1 # number of times to try sending notification
 # email notification settings
 email subject: "Change detected" 
 email message: "Change detected" 
-email recipents:
+email recipients:
   - "abc@def.ghi"
 
 sender email: "example@gmail.com" # currently gmail only
-sender password: # application password, not user password used to login to account!
+sender password: "qwerty" # application password, not user password used to login to account!
 
 # setting to true will enable verbose logging messages
 debugging logs: true 

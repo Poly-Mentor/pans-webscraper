@@ -12,4 +12,6 @@ PyYAML==6.0.2
 requests==2.32.3
 soupsieve==2.6
 urllib3==2.2.3
-yagmail==0.15.293
+aiohttp==3.8.5
+aiofiles==23.2.1
+aioyagmail==0.0.4

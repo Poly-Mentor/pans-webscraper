@@ -1,0 +1,8 @@
+services:
+  pans-scraper:
+    image: filips95/private-repo:async-pans-webscraper
+    volumes:
+      - ./data:/app/data
+    restart: on-failure:3
+    environment:
+      - TZ=Europe/Warsaw
