@@ -1,5 +1,5 @@
 services:
-  async-pans-scraper:
+  pans-scraper:
     image: filips95/private-repo:async-pans-webscraper
     volumes:
       - ./data:/app/data

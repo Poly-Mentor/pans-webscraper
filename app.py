@@ -1,21 +1,21 @@
-from urllib.request import Request, urlopen
-from time import sleep
-from bs4 import BeautifulSoup
+import aiohttp
+import asyncio
 import logging
 import yaml
-import aioyagmail
+from bs4 import BeautifulSoup
+import yagmail
+import aiofiles
 
-
-def load_settings(path):
+async def load_settings(path):
     with open(path, 'r') as file:
         settings = yaml.safe_load(file)
     logging.info("Settings file loaded")
     return settings
 
-def load_last_value(path):
+async def load_last_value(path):
     try:
-        with open(path, 'r') as file:
-            last_value = file.read()
+        async with aiofiles.open(path, 'r') as file:
+            last_value = await file.read()
     except Exception as e:
         logging.warning("Loading last value from file failed")
         logging.warning(e)
@@ -24,37 +24,30 @@ def load_last_value(path):
         logging.info('Last value: "%s" loaded from file', last_value)
     return last_value
 
-def save_last_value(path, last_value):
-    try:
-        with open(path, 'w') as file:
-            file.write(last_value)
-    except Exception as e:
-        logging.warning("Writing last value to file failed")
-        logging.warning(e)
-    else:
-        logging.info('Last value: "%s" saved to file %s', last_value, path)
+async def fetch_with_retry(url, retries=3):
+    for attempt in range(retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    response.raise_for_status()  # Raise an error for bad responses
+                    return await response.text()
+        except aiohttp.ClientConnectionError as e:
+            logging.warning(f"Attempt {attempt + 1} failed: {e}")
+            if attempt == retries - 1:
+                raise
+            await asyncio.sleep(2)  # Wait before retrying
 
-def get_site_content(url):
-    try:
-        request = Request(url)
-        response = urlopen(request)
-    except Exception as e:
-        logging.warning("Couldn't reach site: %s", url)
-        logging.warning(e)
-        response = None
-    else:
-        logging.info('site "%s" reached with status %s, response downloaded', url, response.status)
-    return response
+async def fetch_site_content(url):
+    response_text = await fetch_with_retry(url)
+    return response_text
 
-def extract_new_value(response):
+async def extract_new_value(response):
     try:
-        soup = BeautifulSoup(response.read(), "html.parser")
-        # ---CUSTOM CODE---
+        soup = BeautifulSoup(response, "html.parser")
         search_result = soup.find_all(string="Informatyka I rok")
         extracted_value = search_result[0].parent.parent.next_sibling.next_sibling.string
     except Exception as e:
-        logging.error("Error occured when parsing response")
-        logging.error(e)
+        logging.exception("Error occurred when parsing response")
         extracted_value = None
     else:
         logging.info("Extracted value: %s", extracted_value)
@@ -62,74 +55,46 @@ def extract_new_value(response):
 
 async def notify_gmail(subject, message, recipients_email_addresses, sender_email_address, password):
     try:
-        async with aioyagmail.SMTP(sender_email_address, password) as yag:
-            await yag.send(to=recipients_email_addresses, subject=subject, contents=message)
-        logging.info("Email notification sent")
+        yag = yagmail.SMTP(sender_email_address, password)
+        yag.send(recipients_email_addresses, subject, message)
     except Exception as e:
-        logging.error("Error occurred when sending email: %s", e)
+        logging.error("Error occurred when sending email")
+        logging.error(e)
+        return False
+    else:
+        logging.info("Email notification sent")
+        return True
 
-def notify_discord(message, token):
-    raise NotImplementedError
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    settings = load_settings('data/settings.yaml')
-
-    # show loaded settings when "debugging logs" value was set to true in settings.yaml
-    if settings["debugging logs"]:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("--- Settings ---")
-        for setting_name, setting_value in settings.items():
-            logging.debug("%s = %s", setting_name, setting_value)
-        logging.debug("--- /SETTINGS ---")
-    last_value = load_last_value('data/last_value.txt')
-    
-    # synchronous approach
-    # main loop
+async def main_loop(settings, last_value):
+    check_period = settings.get("check period", 15) * 60  # Convert minutes to seconds
     while True:
-        # try to reach site
-        response = get_site_content(settings['url'])
+        response = await fetch_site_content(settings['url'])
         while response is None:
             access_retry_period = settings["access retry period"]
             logging.info("waiting %s minutes before retrying to reach the site", access_retry_period)
-            sleep(60 * access_retry_period)
-            response = get_site_content(settings['url'])
-        
-        # parse new value
-        new_value = extract_new_value(response)
-
-        # check if it changed
+            await asyncio.sleep(60 * access_retry_period)
+            response = await fetch_site_content(settings['url'])
+        new_value = await extract_new_value(response)
         if new_value != last_value:
-            # don't notify if previous value is unknown
-            if last_value is not None:
-                # try to notify about a change
-                import asyncio
-                notification_successful = asyncio.run(notify_gmail( \
-                        settings["email subject"],\
-                        settings["email message"],\
-                        settings["email recipents"],\
-                        settings["sender email"],\
-                        settings["sender password"]))
-                # keep retrying if not successful
-                retries = 0
-                while not notification_successful and retries < settings["notification max retries"]:
-                    notification_retry_period = settings["notification retry period"]
-                    logging.info("waiting %s minutes before retrying to notify", notification_retry_period)
-                    sleep(60 * notification_retry_period)
-                    notification_successful = asyncio.run(notify_gmail( \
-                        settings["message"],\
-                        settings["email recipents"],\
-                        settings["sender email"],\
-                        settings["sender password"]))
-                    retries += 1
-            # after succesfull notification or max retries reached, update last value and save it to a file
-            last_value = new_value
-            save_last_value('data/last_value.txt', last_value)
+            subject = "New value detected"
+            message = f"New value: {new_value}"
+            recipients_email_addresses = settings["email recipients"]
+            sender_email_address = settings["sender email"]
+            password = settings["sender password"]
+            await notify_gmail(subject, message, recipients_email_addresses, sender_email_address, password)
+            if new_value is not None:
+                with open('data/last_value.txt', 'w') as file:
+                    file.write(new_value)
+                last_value = new_value
+            else:
+                logging.warning("new_value is None, skipping write operation. This may indicate an issue with the site or the extraction process.")
+        await asyncio.sleep(check_period)  # Wait for the specified check period
 
-        # wait for the next check
-        check_period = settings["check period"]
-        logging.info("waiting %s minutes before next check", check_period)
-        sleep(60 * check_period)
-        
-    # end of main loop
+async def main():
+    logging.basicConfig(level=logging.INFO)
+    settings = await load_settings('data/settings.yaml')
+    last_value = await load_last_value('data/last_value.txt')
+    await main_loop(settings, last_value)
+
+if __name__ == '__main__':
+    asyncio.run(main())
