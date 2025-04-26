@@ -31,7 +31,7 @@ async def fetch_with_retry(url, retries=3):
                 async with session.get(url) as response:
                     response.raise_for_status()  # Raise an error for bad responses
                     return await response.text()
-        except aiohttp.ClientConnectionError as e:
+        except Exception as e:
             logging.warning(f"Attempt {attempt + 1} failed: {e}")
             if attempt == retries - 1:
                 raise
