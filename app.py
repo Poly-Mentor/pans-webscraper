@@ -5,6 +5,7 @@ import yaml
 from bs4 import BeautifulSoup
 import yagmail
 import aiofiles
+import re
 
 async def load_settings(path):
     with open(path, 'r') as file:
@@ -44,7 +45,8 @@ async def fetch_site_content(url):
 async def extract_new_value(response):
     try:
         soup = BeautifulSoup(response, "html.parser")
-        search_result = soup.find_all(string="Informatyka I rok")
+        regex = re.compile("Informatyka II rok") # search with regex can catch the phrase with trailing spaces
+        search_result = soup.find_all(string=regex)
         extracted_value = search_result[0].parent.parent.next_sibling.next_sibling.string
     except Exception as e:
         logging.exception("Error occurred when parsing response")
